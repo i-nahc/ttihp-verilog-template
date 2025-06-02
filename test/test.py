@@ -4,14 +4,14 @@
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
-
+from cocotb.types import LogicArray
 
 @cocotb.test()
 async def test_project(dut):
     dut._log.info("Start")
 
     # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, units="us")
+    clock = Clock(dut.clk, 1000, units="ms")
     cocotb.start_soon(clock.start())
 
     # Reset
@@ -28,6 +28,7 @@ async def test_project(dut):
     # Set the input values you want to test
     dut.ui_in.value = 20
     dut.uio_in.value = 30
+    dut.uo_out.value = 50
 
     # Wait for one clock cycle to see the output values
     await ClockCycles(dut.clk, 1)
@@ -38,3 +39,54 @@ async def test_project(dut):
 
     # Keep testing the module by changing the input values, waiting for
     # one or more clock cycles, and asserting the expected output values.
+
+@cocotb.test()
+async def test_counter(dut):
+    dut._log.info("Start counter Test hamburger")
+
+
+    clock = Clock(dut.clk, 100, units="ms")
+    cocotb.start_soon(clock.start())
+
+    dut._log.info("Resetting Values")
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, 1)
+
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 1)
+
+    dut.ui_in.value = 0b1
+    await ClockCycles(dut.clk, 1)
+
+    test_val = 0
+
+    for i in range(255):
+        await ClockCycles(dut.clk, 1)
+        test_val = test_val + 1
+        dut._log.info(dut.uo_out.value)
+        assert dut.uo_out.value == test_val, f"Incorrect value after clock, Expected {test_val}, Received {dut.uo_out.value}"
+
+    dut.ui_in.value = 0b00
+    await ClockCycles(dut.clk, 1)
+
+    # load values
+    dut._log.info("Testing Load")
+    dut.uio_in.value = 0b10010000
+    dut.ui_in.value = 0b10
+    await ClockCycles(dut.clk, 1)
+    await ClockCycles(dut.clk, 1)
+
+    assert dut.uo_out.value == 0b10010000, f"Incorrect value output after load, Expected '0b10010000' Received {dut.uo_out.value}"
+
+    dut.ui_in.value = 0b01
+    await ClockCycles(dut.clk,1)
+
+    test_val = 0b10010000
+
+    for i in range(255 - dut.uio_in.value):
+        await ClockCycles(dut.clk, 1)
+        dut._log.info(dut.uo_out.value)
+        test_val += 1
+        assert dut.uo_out.value == test_val, f"Incorrect value output after load and count, Expected {bin(test_val)} Received {dut.uo_out.value}"
+
+
